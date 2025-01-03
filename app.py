@@ -87,10 +87,10 @@ if token_info:
             else:
                 st.write("None")
 
-            st.write("\nTracks only in Playlist 2:")
+            st.write("Tracks only in Playlist 2:")
             if only_in_playlist2:
                 for id, name in only_in_playlist2.items():
-                    st.write(f"- {name}")
+                    st.write(f"- {name}")  # Corrected indentation
             else:
                 st.write("None")
                     
