@@ -30,8 +30,8 @@ if not token_info:
         url_params = st.query_params
         code = url_params.get("code")
 
-        print(f"url_params: {url_params}")  # Print the entire dictionary
-        print(f"code: {code}")  # Print the retrieved code
+        print(f"url_params: {url_params}")
+        print(f"code: {code}")
 
         if code:
             if isinstance(code, list):
@@ -48,7 +48,7 @@ if token_info:
     user = sp.me()
     st.write(f"Logged in as {user['display_name']}")
 
-    try:
+    try:  # This try block was missing its closing part
         playlists = sp.current_user_playlists()
         selected_playlists = st.multiselect("Select Playlists to Compare", options=[playlist['name'] for playlist in playlists['items']], default=None)
         playlist_ids = [playlist['id'] for playlist in playlists['items'] if playlist['name'] in selected_playlists]
@@ -87,10 +87,24 @@ if token_info:
             else:
                 st.write("None")
 
-            st.write("Tracks only in Playlist 2:")
+            st.write("\nTracks only in Playlist 2:")
             if only_in_playlist2:
                 for id, name in only_in_playlist2.items():
-                    st.write(f"- {name}")  # Corrected indentation
+                    st.write(f"- {name}")
             else:
                 st.write("None")
-                    
+
+            st.write("\nCommon Tracks:")
+            if common_tracks:
+                for id, name in common_tracks.items():
+                    st.write(f"- {name}")
+            else:
+                st.write("None")
+
+        elif len(playlist_ids) > 2:
+            st.write("Please select only two playlists for comparison.")
+        else:
+            st.write("Please select two playlists for comparison.")
+
+    except spotipy.exceptions.SpotifyException as e:  # Added the except block
+        st.error(f"Error during Spotify interaction: {e}")
