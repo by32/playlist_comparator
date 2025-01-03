@@ -1,6 +1,7 @@
 import streamlit as st
 import spotipy
 from spotipy.oauth2 import SpotifyOAuth
+import pandas as pd
 
 # --- Configuration ---
 SPOTIPY_CLIENT_ID = st.secrets["SPOTIPY_CLIENT_ID"]
@@ -11,7 +12,7 @@ if "RUNNING_ON_STREAMLIT" in st.secrets:
 else:
     SPOTIPY_REDIRECT_URI = "http://localhost:8501/callback"
 
-SCOPE = "playlist-read-private playlist-read-collaborative"  # Add other scopes as needed
+SCOPE = "playlist-read-private playlist-read-collaborative"
 
 # --- OAuth Flow ---
 sp_oauth = SpotifyOAuth(client_id=SPOTIPY_CLIENT_ID,
@@ -26,63 +27,67 @@ if not token_info:
     st.write(f"[Authorize Spotify]({auth_url})")
 
     try:
-        url_params = st.query_params()
+        url_params = st.query_params
         code = url_params.get("code")
+
         if code:
             if isinstance(code, list):
-                code = code[0]  # Get the first code if it's a list
-            token_info = sp_oauth.get_access_token(code[0]) # get the first element of the list
-            st.experimental_set_query_params({}) # clear params so the url doesn't look bad
-            st.experimental_rerun() # rerun the app
+                code = code[0]
+            token_info = sp_oauth.get_access_token(code)
+            st.experimental_set_query_params({})
+            st.experimental_rerun()
     except Exception as e:
-        st.write(f"Error during authorization: {e}")
+        st.error(f"Error during authorization: {e}")
 
-# --- Spotify API Interaction (after authorization) ---
+# --- Spotify API Interaction ---
 if token_info:
     sp = spotipy.Spotify(auth=token_info["access_token"])
     user = sp.me()
     st.write(f"Logged in as {user['display_name']}")
 
-    playlists = sp.current_user_playlists()
+    try:
+        playlists = sp.current_user_playlists()
+        selected_playlists = st.multiselect("Select Playlists to Compare", options=[playlist['name'] for playlist in playlists['items']], default=None)
+        playlist_ids = [playlist['id'] for playlist in playlists['items'] if playlist['name'] in selected_playlists]
 
-    selected_playlists = st.multiselect("Select Playlists to Compare", options=[playlist['name'] for playlist in playlists['items']], default=None)
+        if playlist_ids:
+            tracks = []
+            for playlist_id in playlist_ids:
+                results = sp.playlist_items(playlist_id)
+                tracks_in_playlist = results['items']
+                while results['next']:
+                    results = sp.next(results)
+                    tracks_in_playlist.extend(results['items'])
+                tracks.append(tracks_in_playlist)
 
-    playlist_ids = [playlist['id'] for playlist in playlists['items'] if playlist['name'] in selected_playlists]
+            # Comparison Logic
+            from thefuzz import fuzz
+            def compare_tracks(track1, track2):
+                title_similarity = fuzz.ratio(track1['track']['name'].lower(), track2['track']['name'].lower())
+                artist_similarity = fuzz.ratio(track1['track']['artists'][0]['name'].lower(), track2['track']['artists'][0]['name'].lower())
+                overall_similarity = (title_similarity * 0.6) + (artist_similarity * 0.4)
+                return overall_similarity
 
-    if playlist_ids:
-        tracks = []
-        for playlist_id in playlist_ids:
-            results = sp.playlist_items(playlist_id)
-            tracks_in_playlist = results['items']
-            while results['next']:
-                results = sp.next(results)
-                tracks_in_playlist.extend(results['items'])
-            tracks.append(tracks_in_playlist)
-        
-        #Display Tracks for selected playlists
-        for i, playlist_tracks in enumerate(tracks):
-            st.write(f"Tracks in {selected_playlists[i]}:")
-            for track_item in playlist_tracks:
-                track = track_item['track']
-                if track:
-                    st.write(f"- {track['name']} by {track['artists'][0]['name']}")
-        
-        #Comparison Logic
-        from thefuzz import fuzz
-        def compare_tracks(track1, track2):
-            title_similarity = fuzz.ratio(track1['track']['name'].lower(), track2['track']['name'].lower())
-            artist_similarity = fuzz.ratio(track1['track']['artists'][0]['name'].lower(), track2['track']['artists'][0]['name'].lower())
-            overall_similarity = (title_similarity * 0.6) + (artist_similarity * 0.4)
-            return overall_similarity
+            if len(tracks) == 2:
+                comparison_results = []
+                for track1 in tracks[0]:
+                    for track2 in tracks[1]:
+                        similarity = compare_tracks(track1, track2)
+                        if similarity > 50:
+                            comparison_results.append({
+                                "Track 1": track1['track']['name'],
+                                "Track 2": track2['track']['name'],
+                                "Similarity": f"{similarity:.2f}%"
+                            })
+                if comparison_results: # check if there are any results before creating the dataframe
+                    df = pd.DataFrame(comparison_results)
+                    st.dataframe(df)
+                else:
+                    st.write("No similar tracks found above 50%.")
+            elif len(tracks) > 2:
+                st.write("Please select only two playlists for comparison.")
+            else:
+                st.write("Please select two playlists for comparison.")
 
-        if len(tracks) == 2: # only compare if two playlists are selected
-            st.write("Comparison:")
-            for track1 in tracks[0]:
-                for track2 in tracks[1]:
-                    similarity = compare_tracks(track1, track2)
-                    if similarity > 50: # only show similarities above 50%
-                        st.write(f"Similarity between {track1['track']['name']} and {track2['track']['name']}: {similarity:.2f}%")
-        elif len(tracks) > 2:
-            st.write("Please select only two playlists for comparison.")
-        else:
-            st.write("Please select two playlists for comparison.")
+    except spotipy.exceptions.SpotifyException as e:
+        st.error(f"Error retrieving data from Spotify: {e}")
