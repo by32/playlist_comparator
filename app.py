@@ -29,6 +29,8 @@ if not token_info:
         url_params = st.query_params()
         code = url_params.get("code")
         if code:
+            if isinstance(code, list):
+                code = code[0]  # Get the first code if it's a list
             token_info = sp_oauth.get_access_token(code[0]) # get the first element of the list
             st.experimental_set_query_params({}) # clear params so the url doesn't look bad
             st.experimental_rerun() # rerun the app
