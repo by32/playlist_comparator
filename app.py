@@ -30,6 +30,9 @@ if not token_info:
         url_params = st.query_params
         code = url_params.get("code")
 
+        print(f"url_params: {url_params}")  # Print the entire dictionary
+        print(f"code: {code}")  # Print the retrieved code
+
         if code:
             if isinstance(code, list):
                 code = code[0]
@@ -90,4 +93,3 @@ if token_info:
                 st.write("Please select two playlists for comparison.")
 
     except spotipy.exceptions.SpotifyException as e:
-        st.error(f"Error retrieving data from Spotify: {e}")
