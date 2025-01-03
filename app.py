@@ -82,7 +82,7 @@ if token_info:
                                 "Track 2": track2['track']['name'],
                                 "Similarity": f"{similarity:.2f}%"
                             })
-                if comparison_results: # check if there are any results before creating the dataframe
+                if comparison_results:  # check if there are any results before creating the dataframe
                     df = pd.DataFrame(comparison_results)
                     st.dataframe(df)
                 else:
@@ -92,4 +92,4 @@ if token_info:
             else:
                 st.write("Please select two playlists for comparison.")
 
-    except spotipy.exceptions.SpotifyException as e:
+    except spotipy.exceptions.SpotifyException as
