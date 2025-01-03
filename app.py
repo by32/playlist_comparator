@@ -37,7 +37,7 @@ if not token_info:
             if isinstance(code, list):
                 code = code[0]
             token_info = sp_oauth.get_access_token(code)
-            st.experimental_set_query_params({})
+            st.query_params.clear() # Correct way to clear params
             st.experimental_rerun()
     except Exception as e:
         st.error(f"Error during authorization: {e}")
@@ -82,7 +82,7 @@ if token_info:
                                 "Track 2": track2['track']['name'],
                                 "Similarity": f"{similarity:.2f}%"
                             })
-                if comparison_results:  # check if there are any results before creating the dataframe
+                if comparison_results: # check if there are any results before creating the dataframe
                     df = pd.DataFrame(comparison_results)
                     st.dataframe(df)
                 else:
