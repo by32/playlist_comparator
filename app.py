@@ -26,7 +26,7 @@ if not token_info:
     st.write(f"[Authorize Spotify]({auth_url})")
 
     try:
-        url_params = st.experimental_get_query_params()
+        url_params = st.query_params()
         code = url_params.get("code")
         if code:
             token_info = sp_oauth.get_access_token(code[0]) # get the first element of the list
