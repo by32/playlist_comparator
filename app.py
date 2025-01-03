@@ -92,4 +92,5 @@ if token_info:
             else:
                 st.write("Please select two playlists for comparison.")
 
-    except spotipy.exceptions.SpotifyException as
+    except spotipy.exceptions.SpotifyException as e:
+        st.error(f"Error during Spotify interaction: {e}")
