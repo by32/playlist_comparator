@@ -37,7 +37,7 @@ if not token_info:
             if isinstance(code, list):
                 code = code[0]
             token_info = sp_oauth.get_access_token(code)
-            st.query_params.clear() # Correct way to clear params
+            st.query_params.clear()
             st.experimental_rerun()
     except Exception as e:
         st.error(f"Error during authorization: {e}")
@@ -53,44 +53,41 @@ if token_info:
         selected_playlists = st.multiselect("Select Playlists to Compare", options=[playlist['name'] for playlist in playlists['items']], default=None)
         playlist_ids = [playlist['id'] for playlist in playlists['items'] if playlist['name'] in selected_playlists]
 
-        if playlist_ids:
-            tracks = []
-            for playlist_id in playlist_ids:
+        if len(playlist_ids) == 2:
+            playlist1_tracks = []
+            playlist2_tracks = []
+
+            for i, playlist_id in enumerate(playlist_ids):
                 results = sp.playlist_items(playlist_id)
                 tracks_in_playlist = results['items']
                 while results['next']:
                     results = sp.next(results)
                     tracks_in_playlist.extend(results['items'])
-                tracks.append(tracks_in_playlist)
-
-            # Comparison Logic
-            from thefuzz import fuzz
-            def compare_tracks(track1, track2):
-                title_similarity = fuzz.ratio(track1['track']['name'].lower(), track2['track']['name'].lower())
-                artist_similarity = fuzz.ratio(track1['track']['artists'][0]['name'].lower(), track2['track']['artists'][0]['name'].lower())
-                overall_similarity = (title_similarity * 0.6) + (artist_similarity * 0.4)
-                return overall_similarity
-
-            if len(tracks) == 2:
-                comparison_results = []
-                for track1 in tracks[0]:
-                    for track2 in tracks[1]:
-                        similarity = compare_tracks(track1, track2)
-                        if similarity > 50:
-                            comparison_results.append({
-                                "Track 1": track1['track']['name'],
-                                "Track 2": track2['track']['name'],
-                                "Similarity": f"{similarity:.2f}%"
-                            })
-                if comparison_results: # check if there are any results before creating the dataframe
-                    df = pd.DataFrame(comparison_results)
-                    st.dataframe(df)
+                if i == 0:
+                    playlist1_tracks = tracks_in_playlist
                 else:
-                    st.write("No similar tracks found above 50%.")
-            elif len(tracks) > 2:
-                st.write("Please select only two playlists for comparison.")
-            else:
-                st.write("Please select two playlists for comparison.")
+                    playlist2_tracks = tracks_in_playlist
 
-    except spotipy.exceptions.SpotifyException as e:
-        st.error(f"Error during Spotify interaction: {e}")
+            playlist1_track_ids = {track['track']['id']: track['track']['name'] for track in playlist1_tracks if track['track']}
+            playlist2_track_ids = {track['track']['id']: track['track']['name'] for track in playlist2_tracks if track['track']}
+
+            # Find tracks only in playlist 1
+            only_in_playlist1 = {id: name for id, name in playlist1_track_ids.items() if id not in playlist2_track_ids}
+
+            # Find tracks only in playlist 2
+            only_in_playlist2 = {id: name for id, name in playlist2_track_ids.items() if id not in playlist1_track_ids}
+
+            # Find common tracks
+            common_tracks = {id: name for id, name in playlist1_track_ids.items() if id in playlist2_track_ids}
+
+            st.write("Tracks only in Playlist 1:")
+            if only_in_playlist1:
+                for id, name in only_in_playlist1.items():
+                    st.write(f"- {name}")
+            else:
+                st.write("None")
+
+            st.write("\nTracks only in Playlist 2:")
+            if only_in_playlist2:
+                for id, name in only_in_playlist2.items():
+                    st.write(
